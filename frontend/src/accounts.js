@@ -1,6 +1,9 @@
 import { el, setChildren } from 'redom'
 import headerComponent from './headerComponent'
 
+// Глобальная переменная для хранения данных счетов
+let cachedAccounts = null
+
 export default function accountsPage (router) {
   const container = el('div', { class: 'accounts-container' })
 
@@ -19,7 +22,8 @@ export default function accountsPage (router) {
   const titleBar = el('div', { class: 'accounts' },
     el('div', { class: 'row' },
       el('div', { class: 'col-2' },
-        el('h2', { class: 'accounts-title' }, 'Ваши счета')),
+        el('h2', { class: 'accounts-title' }, 'Ваши счета')
+      ),
       el('div', { class: 'col-sm' }, sortSelect),
       el('div', { class: 'col-2' }, createButton)
     ),
@@ -34,9 +38,12 @@ export default function accountsPage (router) {
     titleBar
   ])
 
-  let accountsData = []
-
   const fetchAccounts = async () => {
+    if (cachedAccounts) {
+      renderAccounts(cachedAccounts)
+      return
+    }
+
     const token = localStorage.getItem('token')
     try {
       const response = await fetch('http://localhost:3000/accounts', {
@@ -48,8 +55,8 @@ export default function accountsPage (router) {
       if (result.error) {
         errorElement.textContent = result.error
       } else {
-        accountsData = result.payload
-        renderAccounts(accountsData)
+        cachedAccounts = result.payload
+        renderAccounts(cachedAccounts)
       }
     } catch (error) {
       console.error('Fetch accounts error:', error)
@@ -78,30 +85,6 @@ export default function accountsPage (router) {
     })
   }
 
-  const sortAccounts = (sortBy) => {
-    const sortedAccounts = [...accountsData]
-    switch (sortBy) {
-      case 'account':
-        sortedAccounts.sort((a, b) => a.account.localeCompare(b.account))
-        break
-      case 'balance':
-        sortedAccounts.sort((a, b) => b.balance - a.balance)
-        break
-      case 'lastTransaction':
-        sortedAccounts.sort((a, b) => {
-          const dateA = new Date(a.transactions[0]?.date || 0)
-          const dateB = new Date(b.transactions[0]?.date || 0)
-          return dateB - dateA
-        })
-        break
-    }
-    renderAccounts(sortedAccounts)
-  }
-
-  sortSelect.addEventListener('change', (event) => {
-    sortAccounts(event.target.value)
-  })
-
   createButton.onclick = async () => {
     const token = localStorage.getItem('token')
     try {
@@ -116,6 +99,7 @@ export default function accountsPage (router) {
       if (result.error) {
         errorElement.textContent = result.error
       } else {
+        cachedAccounts = null // Сбросить кэш при создании нового счёта
         fetchAccounts()
       }
     } catch (error) {
